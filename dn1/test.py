@@ -1,51 +1,45 @@
+from turtle import pos
 import pandas as pd #cvs importing
 import numpy as np
 from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.neighbors import KNeighborsRegressor
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import mean_squared_error
+from sklearn.preprocessing import MinMaxScaler
 
-RANDOM_SEED = 420
-df = pd.read_csv('podatki_DN1_1.csv', header=0)
+df = pd.read_csv('podatki_DN1_2.csv', header=0)
 columns = df.columns[1:] #1. stolpec je le dekoracijski
 df = df[columns]
-X = df[['x1', 'x2', 'x3', 'x4', 'x5']]
+X = df[['x1', 'x2', 'x3', 'x4']]
 y = df['y']
+# pretvorim y v {0, 1}, ker lažje delam s tem
+y = y.map(lambda x : 1 if x== 'da' else 0) 
 
-from sklearn.utils import resample
-k_range = list(range(1,100))
-def boot(X, y,model, n_iterations):
+# vrednosti v X spravim na (0,1)
+scaler = MinMaxScaler()
+X = scaler.fit_transform(X)
+
+#razdelim podatke
+RANDOM_SEED = 420 # da mi med testiranjem doma vedno da enake rezultate
+X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=3/4, stratify=y, random_state= RANDOM_SEED)
+
+def ROC_curve(X, y, model):
     '''
-    Z bootstrapingom oceni napako modela.
-    Parameters
-    ------------
+    Izračuna možne  tresholde
+    Parametri
+    ----------
     - X, y - podatki
-    - model - razred z metodama fit() and predict()
-    - n_iterations - št_vzorcev (=št_iteracij)
-
-    Vrne
-    -------
-    Povprečno napako na vseh vzorcih (to je manj optimistična opcija)
+    - model - model z metodo predict_proba()
     '''
-    vzorci = [resample(X, y) for i in range(n_iterations)]
-    mse = []
-    for i in range(n_iterations):
-        # naučiš se na enem vzorcu
-        X_train = vzorci[i][0]
-        y_train = vzorci[i][1]
-        model.fit(X_train, y_train)
-        # potestiraš na ostalih
-        # i-ta napaka je mse na ostalih vzorcih
-        # ker so vsi vzorci enako veliki (veliki so |X|)
-        # dobimo enako, če seštejemo vse napake na vzorcih in delimo s št_ ostalih vzorccev
-        err = 0
-        for j in range(n_iterations):
-            if j == i:
-                continue
-            X_test = vzorci[j][0]
-            y_test = vzorci[j][1]
-            err += mean_squared_error(y_test, model.predict(X_test))
-        err /= n_iterations -1
-        mse.append(err)
-    return  np.mean(mse)
-
-print(boot(X, y, KNeighborsRegressor(n_neighbors=1), 100))
+    N = np.shape(X)[0]
+    # možne thete
+    thetas = model.predict_proba(X)
+    tocke = []
+    for theta in thetas:
+        P = np.sum(y)[0]
+        predictions = thetas.map(lambda x : 1 if x >= theta else 0)
+        positive_y = predictions[y == 1]
+        TP = np.sum(positive_y == 1)[0]
+        FP = np.sum(predictions)[0] - TP
+        
+        TRP = TP/P 
+        FPR = FP/N   
