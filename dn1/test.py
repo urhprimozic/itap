@@ -1,4 +1,5 @@
 import pandas as pd #cvs importing
+import numpy as np
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.metrics import mean_squared_error
@@ -14,14 +15,16 @@ from sklearn.utils import resample
 k_range = list(range(1,100))
 def boot(X, y,model, n_iterations):
     '''
-    Bootstraping.
+    Z bootstrapingom oceni napako modela.
     Parameters
     ------------
-    model - class with mthods fit() and predict()
+    - X, y - podatki
+    - model - razred z metodama fit() and predict()
+    - n_iterations - št_vzorcev (=št_iteracij)
 
-    Returns
+    Vrne
     -------
-    Tabelo mse za vsako iteracijo
+    Povprečno napako na vseh vzorcih (to je manj optimistična opcija)
     '''
     vzorci = [resample(X, y) for i in range(n_iterations)]
     mse = []
@@ -43,6 +46,6 @@ def boot(X, y,model, n_iterations):
             err += mean_squared_error(y_test, model.predict(X_test))
         err /= n_iterations -1
         mse.append(err)
-    return  mse
+    return  np.mean(mse)
 
-print(boot(X, y, KNeighborsRegressor(), 6))
+print(boot(X, y, KNeighborsRegressor(n_neighbors=1), 100))
